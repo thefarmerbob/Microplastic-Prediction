@@ -18,9 +18,9 @@ import imageio
 device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-# Import the existing model and functions
+# Import the existing model and functions from sa_tsushima.py
 from sa_convlstm import SA_ConvLSTM_Model
-from sa_convlstm_microplastics_narrow import extract_data_and_clusters, create_sequences_from_data
+from sa_tsushima import extract_data_and_clusters, create_sequences_from_data, temporal_train_test_split_proper
 from attention_analysis_final import (
     occlusion_sensitivity_analysis, 
     map_region_to_grid, 
@@ -33,13 +33,11 @@ def create_test_data_for_validation(nc_files, num_tests=20):
     """
     print(f"Creating {num_tests} test cases with actual targets from real data...")
     
-    # Load all data
+    # Load all data using sa_tsushima functions
     all_data = extract_data_and_clusters(nc_files)
     print(f"Total data points: {len(all_data)}")
     
     # Create proper temporal split to get test data
-    from sa_convlstm_microplastics_narrow import temporal_train_test_split_proper, create_sequences_from_data
-    
     frame_num = 3  # Use 3 frames for sequence
     train_data, test_data, train_end_idx, test_start_idx = temporal_train_test_split_proper(
         all_data, frame_num, test_ratio=0.2
@@ -119,7 +117,7 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     
     # Create figure with 4 subplots
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle(f'Test Case {test_day}: Model Validation vs Occlusion Analysis\nMAE: {mae:.6f}', fontsize=16)
+    fig.suptitle(f'Tsushima Test Case {test_day}: Model Validation vs Occlusion Analysis\nMAE: {mae:.6f}', fontsize=16)
     
     # 1. Actual data
     im1 = axes[0, 0].imshow(np.flipud(actual), cmap='viridis', aspect='auto')
@@ -129,7 +127,7 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     
     # 2. Model prediction
     im2 = axes[0, 1].imshow(np.flipud(prediction), cmap='viridis', aspect='auto')
-    axes[0, 1].set_title('Model Prediction\n(Baseline)')
+    axes[0, 1].set_title('SA-ConvLSTM Prediction\n(Baseline)')
     axes[0, 1].axis('off')
     plt.colorbar(im2, ax=axes[0, 1], fraction=0.046, pad=0.04)
     
@@ -143,7 +141,7 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     axes[1, 0].set_title('Top 20% Most Influential Areas\n(Occlusion Sensitivity)')
     axes[1, 0].axis('off')
     
-    # Add target region overlay to occlusion map
+    # Add target region overlay to occlusion map (Tsushima region)
     lat_range = target_region_pixels['lat_range']
     lon_range = target_region_pixels['lon_range']
     
@@ -166,20 +164,20 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     plt.tight_layout()
     
     # Save the image
-    output_dir = Path('test_validation_frames')
+    output_dir = Path('tsushima_validation_frames')
     output_dir.mkdir(exist_ok=True)
     
-    filename = output_dir / f'validation_test_{test_day:03d}.png'
+    filename = output_dir / f'tsushima_validation_test_{test_day:03d}.png'
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
     
     return filename
 
-def create_gif_from_images(image_dir, output_filename='test_validation_analysis.gif', duration=0.5):
+def create_gif_from_images(image_dir, output_filename='tsushima_validation_analysis.gif', duration=0.8):
     """
     Create a GIF from the sequence of validation comparison images.
     """
-    image_files = sorted(Path(image_dir).glob('validation_test_*.png'))
+    image_files = sorted(Path(image_dir).glob('tsushima_validation_test_*.png'))
     
     if not image_files:
         print("No validation images found to create GIF!")
@@ -219,13 +217,13 @@ def create_gif_from_images(image_dir, output_filename='test_validation_analysis.
     return output_path
 
 def main():
-    """Main function to create occlusion analysis validation against real test data."""
+    """Main function to create occlusion analysis validation against real test data for Tsushima model."""
     
     print("="*70)
-    print("OCCLUSION SENSITIVITY VALIDATION AGAINST REAL DATA")
+    print("TSUSHIMA OCCLUSION SENSITIVITY VALIDATION AGAINST REAL DATA")
     print("="*70)
     
-    # Target region coordinates (Tsushima area)
+    # Target region coordinates (Tsushima area) - as specified by user
     target_sw_lat, target_sw_lon = 34.02837, 129.11613
     target_ne_lat, target_ne_lon = 34.76456, 129.55801
     
@@ -242,10 +240,10 @@ def main():
         print(f"Error extracting coordinates: {e}")
         return
     
-    # Set up model configuration
+    # Set up model configuration (matching sa_tsushima.py)
     class Args:
         def __init__(self):
-            self.batch_size = 1
+            self.batch_size = 8
             self.gpu_num = 1
             self.img_size = 64
             self.num_layers = 1
@@ -265,14 +263,14 @@ def main():
     
     print(f"Target region mapped to grid: {target_region_pixels}")
     
-    # Load trained model
+    # Load trained model from sa_tsushima.py
     model_path = 'sa_convlstm_japan_microplastics.pth'
     if not Path(model_path).exists():
         print(f"Error: Model file {model_path} not found!")
-        print("Please run the training script first to generate the model weights.")
+        print("Please run sa_tsushima.py first to generate the model weights.")
         return
     
-    print("\nLoading trained SA-ConvLSTM model...")
+    print(f"\nLoading trained SA-ConvLSTM model from sa_tsushima.py...")
     model = SA_ConvLSTM_Model(args)
     
     try:
@@ -345,17 +343,17 @@ def main():
     # Create GIF from all validation images
     print("\nCreating GIF from all validation comparison images...")
     gif_path = create_gif_from_images(
-        'test_validation_frames', 
-        'test_validation_analysis.gif', 
+        'tsushima_validation_frames', 
+        'tsushima_validation_analysis.gif', 
         duration=0.8  # Slower for detailed inspection
     )
     
     print("\n" + "="*70)
-    print("OCCLUSION VALIDATION ANALYSIS COMPLETE")
+    print("TSUSHIMA OCCLUSION VALIDATION ANALYSIS COMPLETE")
     print("="*70)
     print(f"Generated files:")
-    print(f"✓ {len(test_cases)} validation comparison images in 'test_validation_frames/'")
-    print(f"✓ test_validation_analysis.gif")
+    print(f"✓ {len(test_cases)} validation comparison images in 'tsushima_validation_frames/'")
+    print(f"✓ tsushima_validation_analysis.gif")
     print(f"\nValidation Results:")
     print(f"✓ Average prediction MAE: {average_mae:.6f}")
     print(f"✓ Test cases analyzed: {len(test_cases)}")
@@ -368,6 +366,10 @@ def main():
     print("- The cyan dashed box shows the target region (Tsushima)")
     print("- Each frame shows the top 20% most influential areas FOR THAT TEST CASE")
     print("- Compare occlusion patterns with prediction errors to validate model insights")
+    print("\nSpecific to Tsushima Model:")
+    print("- Uses the narrowed Japan region from sa_tsushima.py")
+    print("- Target region: Tsushima Island area (34.02837°N-34.76456°N, 129.11613°E-129.55801°E)")
+    print("- Model trained specifically on the focused geographic region")
 
 if __name__ == "__main__":
     main()
