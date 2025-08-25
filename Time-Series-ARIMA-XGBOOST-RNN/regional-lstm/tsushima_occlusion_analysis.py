@@ -101,7 +101,7 @@ def run_occlusion_for_test_case(model, test_case, target_region_pixels, patch_si
     }
 
 def create_validation_comparison_image(result, target_region_pixels, test_day, img_size=64, 
-                                     threshold_percentile=80, global_vmin=None, global_vmax=None):
+                                     threshold_percentile=60, global_vmin=None, global_vmax=None):
     """
     Create comparison image showing: Actual, Predicted, Occlusion Sensitivity, and Error.
     """
@@ -110,7 +110,7 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     actual = result['actual_target']
     mae = result['mae_baseline']
     
-    # Always use per-frame percentile threshold for relative importance
+    # Always use per-frame percentile threshold for relative importance (60th percentile = top 40%)
     threshold = np.percentile(sensitivity_map, threshold_percentile)
     thresholded = sensitivity_map.copy()
     thresholded[thresholded < threshold] = 0
@@ -138,7 +138,7 @@ def create_validation_comparison_image(result, target_region_pixels, test_day, i
     else:
         im3 = axes[1, 0].imshow(np.flipud(thresholded), cmap='hot', aspect='auto')
     
-    axes[1, 0].set_title('Top 20% Most Influential Areas\n(Occlusion Sensitivity)')
+    axes[1, 0].set_title('Top 40% Most Influential Areas\n(Occlusion Sensitivity)')
     axes[1, 0].axis('off')
     
     # Add target region overlay to occlusion map (Tsushima region)
@@ -364,7 +364,7 @@ def main():
     print("- Lower prediction errors suggest the model is working correctly")
     print("- Occlusion sensitivity shows which areas most influence the Tsushima region")
     print("- The cyan dashed box shows the target region (Tsushima)")
-    print("- Each frame shows the top 20% most influential areas FOR THAT TEST CASE")
+    print("- Each frame shows the top 40% most influential areas FOR THAT TEST CASE")
     print("- Compare occlusion patterns with prediction errors to validate model insights")
     print("\nSpecific to Tsushima Model:")
     print("- Uses the narrowed Japan region from sa_tsushima.py")
