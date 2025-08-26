@@ -165,9 +165,9 @@ def map_region_to_grid(target_sw_lat, target_sw_lon, target_ne_lat, target_ne_lo
                       full_lats, full_lons, img_size=64):
     """Map the target geographic region to the model grid coordinates."""
     
-    # Narrower Japan region bounds (focused area)
-    japan_sw_lat, japan_sw_lon = 32.44353, 126.55888
-    japan_ne_lat, japan_ne_lon = 36.96479, 132.165
+    # Japan region bounds (matching sa_convlstm_microplastics.py)
+    japan_sw_lat, japan_sw_lon = 25.35753, 118.85766
+    japan_ne_lat, japan_ne_lon = 36.98134, 145.47117
     
     # Convert Japan bounds to data indices
     japan_sw_lat_idx, japan_sw_lon_idx = lat_lon_to_indices(japan_sw_lat, japan_sw_lon, full_lats, full_lons)

@@ -18,7 +18,7 @@ if not all_image_files:
 print(f"Found {len(all_image_files)} total images")
 
 # Take only the last 1000 images (most recent data)
-max_images = 1000
+max_images = 100
 image_files = all_image_files[-max_images:] if len(all_image_files) > max_images else all_image_files
 
 print(f"Using last {len(image_files)} images (most recent data)")

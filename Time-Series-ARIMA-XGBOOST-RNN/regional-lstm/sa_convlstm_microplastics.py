@@ -24,6 +24,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from skimage.metrics import structural_similarity as ssim
 import json
 import wandb
+import xarray as xr
 import pandas as pd
 
 # Optionally disable wandb to avoid macOS warnings (uncomment to disable)
@@ -415,7 +416,7 @@ def train_sa_convlstm(model, train_loader, val_loader, args):
     return history
 
 def evaluate_sa_convlstm(model, test_loader, timestamps, test_start_idx):
-    """Evaluate the SA-ConvLSTM model and create visualizations."""
+    """Evaluate the SA-ConvLSTM model and create comprehensive visualizations with error analysis."""
     print("\nEvaluating SA-ConvLSTM model...")
     
     model.eval()
@@ -440,8 +441,10 @@ def evaluate_sa_convlstm(model, test_loader, timestamps, test_start_idx):
     predictions = predictions.squeeze(1)  # (batch, height, width)
     targets = targets.squeeze(1)
     
-    # Calculate metrics
+    # Calculate comprehensive metrics
     mae = mean_absolute_error(targets.flatten(), predictions.flatten())
+    mse = np.mean((targets.flatten() - predictions.flatten()) ** 2)
+    rmse = np.sqrt(mse)
     
     # Calculate SSIM for each prediction
     ssim_scores = []
@@ -450,23 +453,30 @@ def evaluate_sa_convlstm(model, test_loader, timestamps, test_start_idx):
         target_img = targets[i]
         
         # Normalize for SSIM calculation
-        pred_img = (pred_img - pred_img.min()) / (pred_img.max() - pred_img.min() + 1e-8)
-        target_img = (target_img - target_img.min()) / (target_img.max() - target_img.min() + 1e-8)
+        pred_img_norm = (pred_img - pred_img.min()) / (pred_img.max() - pred_img.min() + 1e-8)
+        target_img_norm = (target_img - target_img.min()) / (target_img.max() - target_img.min() + 1e-8)
         
-        ssim_score = ssim(target_img, pred_img, data_range=1.0)
+        ssim_score = ssim(target_img_norm, pred_img_norm, data_range=1.0)
         ssim_scores.append(ssim_score)
     
     mean_ssim = np.mean(ssim_scores)
     
-    print(f"Test MAE: {mae:.6f}")
-    print(f"Mean SSIM: {mean_ssim:.4f}")
-    
-    # Calculate additional metrics for comprehensive evaluation
-    mse = np.mean((targets.flatten() - predictions.flatten()) ** 2)
-    rmse = np.sqrt(mse)
-    
     # Calculate per-sample metrics for distribution analysis
     sample_maes = [np.mean(np.abs(targets[i] - predictions[i])) for i in range(len(predictions))]
+    sample_mses = [np.mean((targets[i] - predictions[i]) ** 2) for i in range(len(predictions))]
+    
+    # Calculate correlation coefficient
+    correlation = np.corrcoef(targets.flatten(), predictions.flatten())[0, 1]
+    
+    print(f"=== COMPREHENSIVE EVALUATION RESULTS ===")
+    print(f"Test MAE: {mae:.6f}")
+    print(f"Test RMSE: {rmse:.6f}")
+    print(f"Test MSE: {mse:.6f}")
+    print(f"Mean SSIM: {mean_ssim:.4f}")
+    print(f"Correlation: {correlation:.4f}")
+    print(f"Min Sample MAE: {np.min(sample_maes):.6f}")
+    print(f"Max Sample MAE: {np.max(sample_maes):.6f}")
+    print(f"Std Sample MAE: {np.std(sample_maes):.6f}")
     
     # Log detailed evaluation metrics to wandb
     wandb.log({
@@ -474,6 +484,7 @@ def evaluate_sa_convlstm(model, test_loader, timestamps, test_start_idx):
         "test_mse": mse,
         "test_rmse": rmse,
         "test_ssim_detailed": mean_ssim,
+        "test_correlation": correlation,
         "min_sample_mae": np.min(sample_maes),
         "max_sample_mae": np.max(sample_maes),
         "std_sample_mae": np.std(sample_maes),
@@ -483,68 +494,346 @@ def evaluate_sa_convlstm(model, test_loader, timestamps, test_start_idx):
         "targets_std": np.std(targets)
     })
     
-    # Create visualization
-    fig, axes = plt.subplots(2, 4, figsize=(24, 12))
-    fig.suptitle('SA-ConvLSTM Japan Region Predictions vs Actual\n(Self-Attention Convolutional LSTM)', fontsize=16)
+    # Japan region geographic bounds for proper visualization
+    lon_min, lon_max = 118.86, 145.47
+    lat_min, lat_max = 25.36, 36.98
     
-    # Show first 4 test samples
-    for i in range(min(4, len(predictions))):
-        # Original - flip vertically for correct geographic orientation
-        target_flipped = np.flipud(targets[i])
-        axes[0, i].imshow(target_flipped, cmap='viridis', aspect='auto')
-        axes[0, i].set_title(f'Actual (Japan Region)\n{timestamps[test_start_idx + i].strftime("%Y-%m-%d")}')
-        axes[0, i].axis('off')
+    # Create comprehensive comparison visualization
+    num_samples = min(8, len(predictions))  # Show up to 8 samples
+    rows = 3  # Prediction, Ground Truth, Error Map
+    cols = num_samples
+    
+    fig, axes = plt.subplots(rows, cols, figsize=(4*cols, 12))
+    fig.suptitle('SA-ConvLSTM: Predictions vs Ground Truth with Error Analysis\n(Japan Region Microplastics)', fontsize=16)
+    
+    if cols == 1:
+        axes = axes.reshape(-1, 1)  # Ensure 2D array for single column
+    
+    # Load original raw data for ground truth display (non-normalized)
+    print("Loading original raw data for ground truth visualization...")
+    raw_targets = []
+    for i in range(num_samples):
+        test_idx = test_start_idx + i
+        if test_idx < len(nc_files):
+            raw_data = process_and_plot_to_array_raw(nc_files[test_idx])
+            raw_targets.append(raw_data)
+        else:
+            raw_targets.append(targets[i])  # Fallback to normalized if no raw data
+    
+    raw_targets = np.array(raw_targets)
+    
+    # Create error statistics for the legend
+    all_errors = []
+    for i in range(num_samples):
+        error_map = np.abs(targets[i] - predictions[i])
+        all_errors.extend(error_map.flatten())
+    
+    error_vmin, error_vmax = 0, np.percentile(all_errors, 95)  # Use 95th percentile to avoid outliers
+    
+    for i in range(num_samples):
+        date_str = timestamps[test_start_idx + i].strftime("%Y-%m-%d")
         
-        # Predicted - flip vertically for correct geographic orientation
+        # Row 1: Predictions
         pred_flipped = np.flipud(predictions[i])
-        axes[1, i].imshow(pred_flipped, cmap='viridis', aspect='auto')
-        axes[1, i].set_title(f'SA-ConvLSTM Predicted\n{timestamps[test_start_idx + i].strftime("%Y-%m-%d")}')
-        axes[1, i].axis('off')
+        im1 = axes[0, i].imshow(pred_flipped, cmap='viridis', aspect='auto', origin='lower',
+                               extent=[lon_min, lon_max, lat_min, lat_max])
+        axes[0, i].set_title(f'Prediction\n{date_str}', fontsize=10)
+        axes[0, i].set_xlabel('Longitude (°E)', fontsize=8)
+        if i == 0:
+            axes[0, i].set_ylabel('Latitude (°N)', fontsize=8)
+        
+        # Row 2: Ground Truth (Raw Data - Original Scale)
+        raw_target_flipped = np.flipud(raw_targets[i])
+        im2 = axes[1, i].imshow(raw_target_flipped, cmap='viridis', aspect='auto', origin='lower',
+                               extent=[lon_min, lon_max, lat_min, lat_max])
+        axes[1, i].set_title(f'Ground Truth (Raw)\n{date_str}', fontsize=10)
+        axes[1, i].set_xlabel('Longitude (°E)', fontsize=8)
+        if i == 0:
+            axes[1, i].set_ylabel('Latitude (°N)', fontsize=8)
+        
+        # Row 3: Error Map
+        error_map = np.abs(target_flipped - pred_flipped)
+        im3 = axes[2, i].imshow(error_map, cmap='Reds', aspect='auto', origin='lower',
+                               extent=[lon_min, lon_max, lat_min, lat_max],
+                               vmin=error_vmin, vmax=error_vmax)
+        sample_mae = np.mean(error_map)
+        axes[2, i].set_title(f'Absolute Error\nMAE: {sample_mae:.4f}', fontsize=10)
+        axes[2, i].set_xlabel('Longitude (°E)', fontsize=8)
+        if i == 0:
+            axes[2, i].set_ylabel('Latitude (°N)', fontsize=8)
+        
+        # Add grid to all subplots
+        for row in range(3):
+            axes[row, i].grid(True, alpha=0.3)
+            axes[row, i].tick_params(labelsize=8)
+    
+    # Add colorbars positioned at the far right of each row
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    
+    # Create colorbars for each row
+    # Predictions colorbar (Normalized 0-1)
+    divider1 = make_axes_locatable(axes[0, -1])
+    cax1 = divider1.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(im1, cax=cax1, label='Concentration (Normalized 0-1)')
+    
+    # Ground truth colorbar (Raw Scale - e.g., 13,000)
+    divider2 = make_axes_locatable(axes[1, -1])
+    cax2 = divider2.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(im2, cax=cax2, label='Concentration (Raw Scale)')
+    
+    # Error map colorbar
+    divider3 = make_axes_locatable(axes[2, -1])
+    cax3 = divider3.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(im3, cax=cax3, label='Absolute Error (Normalized)')
     
     plt.tight_layout()
-    plt.savefig('sa_convlstm_predictions.png', dpi=150, bbox_inches='tight')
+    plt.savefig('sa_convlstm_comprehensive_evaluation.png', dpi=150, bbox_inches='tight')
     
-    # Log the prediction visualization to wandb
-    wandb.log({"predictions_visualization": wandb.Image('sa_convlstm_predictions.png')})
+    # Log the comprehensive visualization to wandb
+    wandb.log({"comprehensive_evaluation": wandb.Image('sa_convlstm_comprehensive_evaluation.png')})
     
-    # Create individual comparison images for wandb
+    # Create detailed individual comparison images
     comparison_images = []
-    for i in range(min(4, len(predictions))):
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    for i in range(min(6, len(predictions))):  # Detailed view for first 6 samples
+        fig, axes_comp = plt.subplots(2, 3, figsize=(18, 12))
+        date_str = timestamps[test_start_idx + i].strftime("%Y-%m-%d")
+        fig.suptitle(f'Detailed Comparison: {date_str} (Sample {i+1})', fontsize=16)
         
-        # Target
+        # Top row: Original scale comparison
         target_flipped = np.flipud(targets[i])
-        im1 = ax1.imshow(target_flipped, cmap='viridis', aspect='auto')
-        ax1.set_title(f'Actual\n{timestamps[test_start_idx + i].strftime("%Y-%m-%d")}')
-        ax1.axis('off')
-        plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
-        
-        # Prediction
         pred_flipped = np.flipud(predictions[i])
-        im2 = ax2.imshow(pred_flipped, cmap='viridis', aspect='auto')
-        ax2.set_title(f'SA-ConvLSTM Predicted\n{timestamps[test_start_idx + i].strftime("%Y-%m-%d")}')
-        ax2.axis('off')
-        plt.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
+        error_map = np.abs(target_flipped - pred_flipped)
         
-        # Difference
-        diff = np.abs(target_flipped - pred_flipped)
-        im3 = ax3.imshow(diff, cmap='Reds', aspect='auto')
-        ax3.set_title(f'Absolute Difference\nMAE: {np.mean(diff):.4f}')
-        ax3.axis('off')
-        plt.colorbar(im3, ax=ax3, fraction=0.046, pad=0.04)
+        # Ground Truth (Raw Scale)
+        raw_target_flipped = np.flipud(raw_targets[i])
+        im1 = axes_comp[0, 0].imshow(raw_target_flipped, cmap='viridis', aspect='auto', origin='lower',
+                                    extent=[lon_min, lon_max, lat_min, lat_max])
+        axes_comp[0, 0].set_title(f'Ground Truth (Raw)\nRange: {np.min(raw_target_flipped):.2e} - {np.max(raw_target_flipped):.2e}')
+        axes_comp[0, 0].set_xlabel('Longitude (°E)')
+        axes_comp[0, 0].set_ylabel('Latitude (°N)')
+        axes_comp[0, 0].grid(True, alpha=0.3)
+        plt.colorbar(im1, ax=axes_comp[0, 0], fraction=0.046, pad=0.04, label='Raw Concentration')
+        
+        # Prediction (Normalized Scale)
+        im2 = axes_comp[0, 1].imshow(pred_flipped, cmap='viridis', aspect='auto', origin='lower',
+                                    extent=[lon_min, lon_max, lat_min, lat_max])
+        axes_comp[0, 1].set_title(f'SA-ConvLSTM Prediction (Normalized)\nRange: {np.min(pred_flipped):.4f} - {np.max(pred_flipped):.4f}')
+        axes_comp[0, 1].set_xlabel('Longitude (°E)')
+        axes_comp[0, 1].set_ylabel('Latitude (°N)')
+        axes_comp[0, 1].grid(True, alpha=0.3)
+        plt.colorbar(im2, ax=axes_comp[0, 1], fraction=0.046, pad=0.04, label='Normalized Concentration')
+        
+        # Error Map
+        im3 = axes_comp[0, 2].imshow(error_map, cmap='Reds', aspect='auto', origin='lower',
+                                    extent=[lon_min, lon_max, lat_min, lat_max])
+        axes_comp[0, 2].set_title(f'Absolute Error\nMAE: {np.mean(error_map):.4f}, Max: {np.max(error_map):.4f}')
+        axes_comp[0, 2].set_xlabel('Longitude (°E)')
+        axes_comp[0, 2].set_ylabel('Latitude (°N)')
+        axes_comp[0, 2].grid(True, alpha=0.3)
+        plt.colorbar(im3, ax=axes_comp[0, 2], fraction=0.046, pad=0.04)
+        
+        # Bottom row: Statistical analysis
+        # Scatter plot
+        axes_comp[1, 0].scatter(target_flipped.flatten(), pred_flipped.flatten(), alpha=0.5, s=1)
+        axes_comp[1, 0].plot([target_flipped.min(), target_flipped.max()], 
+                            [target_flipped.min(), target_flipped.max()], 'r--', lw=2)
+        axes_comp[1, 0].set_xlabel('Ground Truth')
+        axes_comp[1, 0].set_ylabel('Prediction')
+        axes_comp[1, 0].set_title(f'Correlation: {np.corrcoef(target_flipped.flatten(), pred_flipped.flatten())[0,1]:.3f}')
+        axes_comp[1, 0].grid(True, alpha=0.3)
+        
+        # Error histogram
+        axes_comp[1, 1].hist(error_map.flatten(), bins=50, alpha=0.7, color='red')
+        axes_comp[1, 1].set_xlabel('Absolute Error')
+        axes_comp[1, 1].set_ylabel('Frequency')
+        axes_comp[1, 1].set_title(f'Error Distribution\nStd: {np.std(error_map):.4f}')
+        axes_comp[1, 1].grid(True, alpha=0.3)
+        
+        # Metrics table
+        axes_comp[1, 2].axis('off')
+        metrics_text = f"""Sample Metrics:
+        
+MAE (Normalized): {np.mean(error_map):.6f}
+RMSE (Normalized): {np.sqrt(np.mean(error_map**2)):.6f}
+Max Error: {np.max(error_map):.6f}
+Min Error: {np.min(error_map):.6f}
+
+Ground Truth (Raw):
+Mean: {np.mean(raw_target_flipped):.2e}
+Std: {np.std(raw_target_flipped):.2e}
+Range: {np.min(raw_target_flipped):.2e} - {np.max(raw_target_flipped):.2e}
+
+Prediction (Normalized):
+Mean: {np.mean(pred_flipped):.6f}
+Std: {np.std(pred_flipped):.6f}
+Range: {np.min(pred_flipped):.4f} - {np.max(pred_flipped):.4f}
+
+SSIM: {ssim_scores[i]:.4f}"""
+        
+        axes_comp[1, 2].text(0.1, 0.9, metrics_text, transform=axes_comp[1, 2].transAxes, 
+                            fontsize=10, verticalalignment='top', fontfamily='monospace',
+                            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
         
         plt.tight_layout()
-        comparison_path = f'comparison_{i}.png'
+        comparison_path = f'detailed_comparison_{i+1}.png'
         plt.savefig(comparison_path, dpi=150, bbox_inches='tight')
         comparison_images.append(wandb.Image(comparison_path))
         plt.close()
     
-    # Log individual comparisons to wandb
-    wandb.log({"prediction_comparisons": comparison_images})
+    # Log detailed comparisons to wandb
+    wandb.log({"detailed_comparisons": comparison_images})
     
-    plt.close()
+    # Save test predictions and targets for further analysis
+    np.save('test_predictions.npy', predictions)
+    np.save('test_targets.npy', targets)
+    np.save('test_timestamps.npy', np.array([timestamps[test_start_idx + i] for i in range(len(predictions))]))
+    
+    # Create and save comprehensive results
+    evaluation_results = {
+        'test_metrics': {
+            'mae': float(mae),
+            'rmse': float(rmse),
+            'mse': float(mse),
+            'mean_ssim': float(mean_ssim),
+            'correlation': float(correlation)
+        },
+        'sample_statistics': {
+            'min_mae': float(np.min(sample_maes)),
+            'max_mae': float(np.max(sample_maes)),
+            'std_mae': float(np.std(sample_maes)),
+            'mean_mae': float(np.mean(sample_maes))
+        },
+        'data_statistics': {
+            'predictions_mean': float(np.mean(predictions)),
+            'predictions_std': float(np.std(predictions)),
+            'targets_mean': float(np.mean(targets)),
+            'targets_std': float(np.std(targets))
+        },
+        'test_info': {
+            'num_test_samples': len(predictions),
+            'image_size': predictions[0].shape,
+            'test_start_date': timestamps[test_start_idx].strftime('%Y-%m-%d'),
+            'test_end_date': timestamps[test_start_idx + len(predictions) - 1].strftime('%Y-%m-%d')
+        }
+    }
+    
+    with open('sa_convlstm_evaluation_results.json', 'w') as f:
+        json.dump(evaluation_results, f, indent=2)
+    
+    print(f"\n✓ Saved test predictions to: test_predictions.npy")
+    print(f"✓ Saved test targets to: test_targets.npy")
+    print(f"✓ Saved evaluation results to: sa_convlstm_evaluation_results.json")
+    print(f"✓ Created comprehensive visualization: sa_convlstm_comprehensive_evaluation.png")
+    print(f"✓ Created {len(comparison_images)} detailed comparison images")
+    
+    plt.close('all')  # Close all remaining figures
     
     return mae, mean_ssim, predictions
+
+def save_forecasts_as_netcdf(forecasts, forecast_dates, args):
+    """
+    Save forecast arrays as NetCDF files in a format similar to CYGNSS data.
+    
+    Args:
+        forecasts: numpy array of shape (num_days, height, width)
+        forecast_dates: list of datetime objects
+        args: Args object with model parameters
+    """
+    print("\n=== SAVING FORECASTS AS NETCDF FILES ===")
+    
+    # Create forecast directory
+    forecast_dir = Path("forecast_netcdf")
+    forecast_dir.mkdir(exist_ok=True)
+    
+    # Define geographic coordinates for Japan region
+    # Based on the original cropping: lat[249:296], lon[475:582] from global grid
+    # Geographic bounds: 25.35753°N-36.98134°N, 118.85766°E-145.47117°E
+    
+    # Since our data is 64x64 (downsampled), we need to create appropriate coordinates
+    lat_min, lat_max = 25.35753, 36.98134
+    lon_min, lon_max = 118.85766, 145.47117
+    
+    # Create coordinate arrays for the 64x64 grid
+    lats = np.linspace(lat_max, lat_min, args.img_size)  # Reversed because lat decreases going down
+    lons = np.linspace(lon_min, lon_max, args.img_size)
+    
+    saved_files = []
+    
+    for i, (forecast, date) in enumerate(zip(forecasts, forecast_dates)):
+        # Create filename similar to CYGNSS format
+        date_str = date.strftime("%Y%m%d")
+        filename = f"sa_convlstm_forecast.s{date_str}-120000-e{date_str}-120000.l3.grid-microplastic.japan.nc"
+        filepath = forecast_dir / filename
+        
+        # Flip the forecast vertically to match geographic orientation
+        # (model outputs are upside-down relative to geographic coordinates)
+        forecast_geo = np.flipud(forecast)
+        
+        # Create xarray dataset with proper dimensions and coordinates
+        ds = xr.Dataset(
+            data_vars={
+                'mp_concentration': (
+                    ['lat', 'lon'], 
+                    forecast_geo,
+                    {
+                        'long_name': 'Microplastic Concentration Forecast',
+                        'units': 'normalized_concentration',
+                        'source': 'SA-ConvLSTM Model',
+                        '_FillValue': np.nan,
+                        'valid_min': np.nanmin(forecast_geo),
+                        'valid_max': np.nanmax(forecast_geo)
+                    }
+                )
+            },
+            coords={
+                'lat': (
+                    ['lat'], 
+                    lats,
+                    {
+                        'long_name': 'Latitude',
+                        'units': 'degrees_north',
+                        'standard_name': 'latitude'
+                    }
+                ),
+                'lon': (
+                    ['lon'], 
+                    lons,
+                    {
+                        'long_name': 'Longitude', 
+                        'units': 'degrees_east',
+                        'standard_name': 'longitude'
+                    }
+                )
+            },
+            attrs={
+                'title': 'SA-ConvLSTM Microplastic Concentration Forecast',
+                'institution': 'MP-Prediction Project',
+                'source': 'SA-ConvLSTM Deep Learning Model',
+                'forecast_date': date.strftime('%Y-%m-%d'),
+                'creation_date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'geographic_region': 'Japan',
+                'model_resolution': f'{args.img_size}x{args.img_size}',
+                'lat_bounds': f'{lat_min:.5f}N to {lat_max:.5f}N',
+                'lon_bounds': f'{lon_min:.5f}E to {lon_max:.5f}E',
+                'data_normalization': 'Global normalization applied (0-1 range)',
+                'conventions': 'CF-1.6'
+            }
+        )
+        
+        # Save the NetCDF file
+        ds.to_netcdf(filepath)
+        ds.close()
+        
+        saved_files.append(str(filepath))
+        print(f"  Saved forecast {i+1}/5: {filename}")
+        print(f"    Date: {date.strftime('%Y-%m-%d')}")
+        print(f"    Shape: {forecast_geo.shape}")
+        print(f"    Concentration range: {np.nanmin(forecast_geo):.6f} to {np.nanmax(forecast_geo):.6f}")
+    
+    print(f"\n✓ All {len(forecasts)} forecast NetCDF files saved to: {forecast_dir}")
+    print("✓ Files ready for DBSCAN clustering analysis")
+    
+    return saved_files
 
 def forecast_future(model, data, timestamps, args, num_forecast_days=5):
     """
@@ -653,6 +942,9 @@ def forecast_future(model, data, timestamps, args, num_forecast_days=5):
     print(f"  Mean concentration: {np.mean(forecasts):.6f}")
     print(f"  Std concentration: {np.std(forecasts):.6f}")
     print(f"  Range: {np.min(forecasts):.6f} to {np.max(forecasts):.6f}")
+    
+    # Save forecasts as NetCDF files for DBSCAN analysis
+    netcdf_files = save_forecasts_as_netcdf(forecasts, forecast_dates, args)
     
     return forecasts, forecast_dates
 
