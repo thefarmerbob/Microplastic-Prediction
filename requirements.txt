@@ -1,0 +1,48 @@
+# Core Data Science and Scientific Computing
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Data Visualization  
+matplotlib>=3.3.0
+seaborn>=0.11.0
+imageio>=2.9.0
+
+# Machine Learning and Deep Learning
+tensorflow>=2.8.0,<2.20.0
+torch>=1.12.0
+xgboost>=1.5.0
+optuna>=3.0.0
+
+# Scientific Data Handling
+xarray>=0.20.0
+netCDF4>=1.5.7
+cftime>=1.5.0
+
+# Image Processing
+opencv-python>=4.5.0
+scikit-image>=0.18.0
+Pillow>=8.0.0
+
+# Experiment Tracking and Logging
+wandb>=0.12.0
+
+# Geospatial and Climate Data
+h5netcdf>=0.11.0
+h5py>=3.0.0
+
+# Time Series Analysis
+statsmodels>=0.12.0
+
+# Utilities
+python-dateutil>=2.8.0
+pytz>=2021.1
+tqdm>=4.60.0
+
+# Web Framework (for HTML output files)
+flask>=2.0.0
+jinja2>=3.0.0
+
+# Additional Scientific Computing
+zarr>=2.10.0
