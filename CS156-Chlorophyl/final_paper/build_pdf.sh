@@ -7,3 +7,4 @@ cd "$(dirname "$0")"
 latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 
 echo "PDF generated at main.pdf"
+

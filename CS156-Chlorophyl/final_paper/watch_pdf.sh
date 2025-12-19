@@ -5,3 +5,4 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 latexmk -pdf -pvc -interaction=nonstopmode -halt-on-error main.tex
+
