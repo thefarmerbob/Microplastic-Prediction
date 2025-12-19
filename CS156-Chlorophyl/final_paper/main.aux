@@ -1,0 +1,83 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{4}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Problem Statement}{4}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Why This Matters (Arabian Sea and Indian coast)}{4}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}How to Use}{5}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Download the Data}{5}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Train the Model}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Generate Predictions and Clustering}{5}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Data Acquisition and Preprocessing}{6}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}VIIRS Chlorophyll-a Product}{6}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}ERDDAP Query}{6}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Data Cleaning and Normalization}{6}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Temporal Sampling}{7}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Exploratory Data Analysis}{7}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Spatial Distribution}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Example chlorophyll-a distribution in the Arabian Sea (log$_{10}$ scale). High concentrations appear along coastlines and upwelling zones.}}{7}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:spatial_dist}{{1}{7}{Example chlorophyll-a distribution in the Arabian Sea (log$_{10}$ scale). High concentrations appear along coastlines and upwelling zones}{figure.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Temporal Variability}{7}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Daily mean chlorophyll-a concentration (2020--2025). Clear seasonal peaks align with monsoon upwelling periods.}}{7}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:temporal_series}{{2}{7}{Daily mean chlorophyll-a concentration (2020--2025). Clear seasonal peaks align with monsoon upwelling periods}{figure.caption.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Histogram of Concentrations}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Frequency distribution of chlorophyll-a values (log scale). Most pixels are oligotrophic; blooms are rare but high-impact events.}}{8}{figure.caption.3}\protected@file@percent }
+\newlabel{fig:histogram}{{3}{8}{Frequency distribution of chlorophyll-a values (log scale). Most pixels are oligotrophic; blooms are rare but high-impact events}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Model Selection and Theory}{8}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Why Convolutional LSTMs?}{8}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Limitations of Standard ConvLSTM}{8}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}SA-ConvLSTM Architecture}{9}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.3.1}SA Memory Module}{9}{subsubsection.5.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.3.2}ConvLSTM Cell}{10}{subsubsection.5.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Multi-Layer Architecture}{10}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Training Objective}{10}{subsection.5.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Why This Works}{11}{subsection.5.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Training Setup}{11}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Data Splitting}{11}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Sequence Construction}{11}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Hyperparameters}{11}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces SA-ConvLSTM training configuration}}{11}{table.caption.4}\protected@file@percent }
+\newlabel{tab:hyperparams}{{1}{11}{SA-ConvLSTM training configuration}{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Why These Choices? (model design)}{12}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Training Procedure}{12}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Computational Requirements}{12}{subsection.6.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Model Evaluation}{12}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Quantitative Metrics}{12}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {7.1.1}Mean Squared Error (MSE)}{12}{subsubsection.7.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {7.1.2}Mean Absolute Error (MAE)}{13}{subsubsection.7.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Qualitative Assessment}{13}{subsection.7.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces SA-ConvLSTM predictions vs. ground truth for 5 validation samples. Error maps highlight regions of disagreement.}}{13}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:predictions}{{4}{13}{SA-ConvLSTM predictions vs. ground truth for 5 validation samples. Error maps highlight regions of disagreement}{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Comparison to Baseline}{13}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {7.3.1}Persistence Model}{13}{subsubsection.7.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {7.3.2}Climatology Model}{14}{subsubsection.7.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}DBSCAN Clustering for Bloom Localization}{14}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Why DBSCAN for blooms?}{14}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Algorithm Overview}{14}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Application to Chlorophyll Maps (Arabian Sea focus)}{15}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Results}{15}{subsection.8.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces DBSCAN-identified bloom clusters (colored regions) overlaid on chlorophyll maps. Top row: predictions, bottom row: ground truth.}}{15}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:dbscan_results}{{5}{15}{DBSCAN-identified bloom clusters (colored regions) overlaid on chlorophyll maps. Top row: predictions, bottom row: ground truth}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Discussion}{15}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Model Performance (what it tells us)}{15}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Limitations}{16}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.2.1}Peak Intensity Underestimation}{16}{subsubsection.9.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.2.2}Short Forecast Horizon}{16}{subsubsection.9.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.2.3}Limited Geographic Scope}{16}{subsubsection.9.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Comparison to Existing Methods}{17}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Operational Deployment}{17}{subsection.9.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.4.1}Data Latency}{17}{subsubsection.9.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.4.2}Model Updates}{18}{subsubsection.9.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.4.3}User Interface}{18}{subsubsection.9.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Future Work}{18}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Multi-Modal Inputs}{18}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Physics-Informed Neural Networks}{18}{subsection.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Uncertainty Quantification}{18}{subsection.10.3}\protected@file@percent }
+\bibcite{xingjian2015convolutional}{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}Real-Time Processing}{19}{subsection.10.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}Conclusion}{19}{section.11}\protected@file@percent }
+\bibcite{vaswani2017attention}{2}
+\bibcite{ester1996density}{3}
+\gdef \@abspage@last{21}

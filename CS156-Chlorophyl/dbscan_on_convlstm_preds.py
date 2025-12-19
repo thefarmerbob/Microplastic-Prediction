@@ -37,9 +37,9 @@ def run_inference(npz_path="chlorophyll_timeseries.npz",
                   seq_in=3,
                   seq_out=1,
                   num_samples=5,
-                  threshold=None,          # if None, use percentile
-                  threshold_percentile=90, # top X% of values per frame
-                  eps_km=75,
+                  threshold=0.5,             # chlorophyll mg m^-3 cutoff for clustering
+                  threshold_percentile=99,   # overrides fixed threshold with top X%
+                  eps_km=3,
                   min_samples=5,
                   out_path="convlstm_dbscan_analysis.png",
                   device=None):
@@ -84,37 +84,63 @@ def run_inference(npz_path="chlorophyll_timeseries.npz",
     cmap_err = plt.cm.Reds
     cmap_err.set_bad(color="#dcdcdc")
 
-    for c, (x, y, p) in enumerate(samples):
+    # Pre-compute displays so we can share common color limits (keeps the
+    # prediction and ground truth scales comparable and matches the colorbar).
+    prepared = []
+    for x, y, p in samples:
         gt_lin = denorm(np.array(y).squeeze())
         pred_lin = denorm(np.array(p).squeeze())
-        land_mask = gt_lin <= 1e-9
+
+        land_mask = gt_lin < 0.01
         gt_disp = np.ma.masked_where(land_mask, to_log(gt_lin))
         pred_disp = np.ma.masked_where(land_mask, to_log(pred_lin))
         err = np.abs(pred_lin - gt_lin)
         err_masked = np.ma.masked_where(land_mask, err)
 
-        vmin = min(gt_disp.min(), pred_disp.min())
-        vmax = max(gt_disp.max(), pred_disp.max())
-        err_max = max(err_masked.max(), 1e-6)
+        prepared.append(
+            dict(
+                gt_lin=gt_lin,
+                pred_lin=pred_lin,
+                gt_disp=gt_disp,
+                pred_disp=pred_disp,
+                err_masked=err_masked,
+                land_mask=land_mask,
+            )
+        )
 
-        im_pred = axes[0, c].imshow(pred_disp, cmap=cmap_main, vmin=vmin, vmax=vmax)
+    # Shared color limits so the top/bottom panels use the same scale.
+    main_vmin = min(np.ma.min(item["gt_disp"]) for item in prepared)
+    main_vmax = max(np.ma.max(item["gt_disp"]) for item in prepared)
+    main_vmin = min(main_vmin, min(np.ma.min(item["pred_disp"]) for item in prepared))
+    main_vmax = max(main_vmax, max(np.ma.max(item["pred_disp"]) for item in prepared))
+    err_vmax = max(max(np.ma.max(item["err_masked"]) for item in prepared), 1e-6)
+
+    for c, item in enumerate(prepared):
+        gt_lin = item["gt_lin"]
+        pred_lin = item["pred_lin"]
+        gt_disp = item["gt_disp"]
+        pred_disp = item["pred_disp"]
+        err_masked = item["err_masked"]
+        land_mask = item["land_mask"]
+
+        im_pred = axes[0, c].imshow(pred_disp, cmap=cmap_main, vmin=main_vmin, vmax=main_vmax)
         axes[0, c].set_title(f"Prediction #{c+1}")
         axes[0, c].axis("off")
 
-        im_gt = axes[1, c].imshow(gt_disp, cmap=cmap_main, vmin=vmin, vmax=vmax)
+        im_gt = axes[1, c].imshow(gt_disp, cmap=cmap_main, vmin=main_vmin, vmax=main_vmax)
         axes[1, c].set_title(f"Ground truth #{c+1}")
         axes[1, c].axis("off")
 
-        im_err = axes[2, c].imshow(err_masked, cmap=cmap_err, vmin=0, vmax=err_max)
+        im_err = axes[2, c].imshow(err_masked, cmap=cmap_err, vmin=0, vmax=err_vmax)
         axes[2, c].set_title("Abs error")
         axes[2, c].axis("off")
 
         # DBSCAN on thresholded regions for both pred and gt
         for frame, ax, color, label in [
-            (pred_lin, axes[0, c], "orange", "Pred"),
+            (pred_lin, axes[0, c], "yellow", "Pred"),
             (gt_lin, axes[1, c], "yellow", "GT"),
         ]:
-            if threshold is None:
+            if threshold_percentile is not None:
                 tval = np.nanpercentile(frame, threshold_percentile)
             else:
                 tval = threshold
@@ -142,23 +168,47 @@ def run_inference(npz_path="chlorophyll_timeseries.npz",
                 X_scaled = coords * scale
 
             labels = DBSCAN(eps=eps_km, min_samples=min_samples).fit_predict(X_scaled)
-            for k in set(labels):
+            cluster_num = 0
+            for k in sorted(set(labels)):
                 if k == -1:
                     continue
                 pts = coords[labels == k]
                 if pts.shape[0] < min_samples:
                     continue
-                cy, cx = pts.mean(axis=0)
-                mean_val = frame[pts[:, 0], pts[:, 1]].mean()
-                ax.scatter(cx, cy, s=45, facecolors="none", edgecolors=color, linewidths=1.3, alpha=0.9)
-                ax.text(cx + 1, cy, f"{mean_val:.2f}", color=color, fontsize=7, weight="bold", ha="left", va="center")
+                cluster_num += 1
+                
+                # Get bounding box
+                y_min, x_min = pts.min(axis=0)
+                y_max, x_max = pts.max(axis=0)
+                
+                # Draw rectangle around cluster
+                from matplotlib.patches import Rectangle
+                rect = Rectangle((x_min-0.5, y_min-0.5), x_max-x_min+1, y_max-y_min+1, 
+                               linewidth=2, edgecolor=color, facecolor='none', alpha=0.9)
+                ax.add_patch(rect)
+                
+                # Calculate cluster statistics
+                cluster_vals = frame[pts[:, 0], pts[:, 1]]
+                mean_val = cluster_vals.mean()
+                total_pixels = pts.shape[0]
+                
+                # Position label at top-left of cluster box
+                label_x = x_min - 0.5
+                label_y = y_min - 0.5
+                
+                # Create label with cluster info
+                label_text = f"C{cluster_num}\n{mean_val:.2f}\n({total_pixels} px)"
+                ax.text(label_x, label_y, label_text, 
+                       color=color, fontsize=8, weight="bold", 
+                       ha="left", va="bottom",
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='black', alpha=0.6, edgecolor='none'))
 
     fig.subplots_adjust(left=0.02, right=0.92, top=0.92, bottom=0.05, wspace=0.08, hspace=0.18)
     cax_main = fig.add_axes([0.94, 0.55, 0.015, 0.35])
     fig.colorbar(im_gt, cax=cax_main, label="log10 chlorophyll-a (mg m^-3)")
     cax_err = fig.add_axes([0.94, 0.12, 0.015, 0.25])
     fig.colorbar(im_err, cax=cax_err, label="Abs error (mg m^-3)")
-    if threshold is None:
+    if threshold_percentile is not None:
         thresh_label = f"top {threshold_percentile}th pct"
     else:
         thresh_label = f">= {threshold} mg m^-3"
